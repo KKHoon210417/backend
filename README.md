@@ -34,14 +34,14 @@
 
 ## 🕸 시스템 구성도
 
-![image](https://user-images.githubusercontent.com/43202607/145735955-d37a9a78-23a4-4ff4-9de3-beaf8dec8aec.png)
+![image](https://user-images.githubusercontent.com/82690689/150101613-9570aa4a-7020-4886-a5dd-b1f36cecf7c0.png)
 
 
-## 🛠 사용기술 &nbsp; [Wiki](https://github.com/yum-yum-trend/backend/wiki/%EC%82%AC%EC%9A%A9-%EA%B8%B0%EC%88%A0)
+## 🛠 사용기술 &nbsp;
 
 ### 프론트엔드
 
-`HTML` / `Javascript` / `CSS` `Ajax`
+`HTML` / `Javascript` / `CSS`
 
 `Kakao SDK` `Google Geolocation` `Kakao Local`
 
@@ -60,57 +60,274 @@
 
 <br>
 
-## 💡 주요기능 &nbsp; [Wiki](https://github.com/yum-yum-trend/backend/wiki/%EC%A3%BC%EC%9A%94-%EA%B8%B0%EB%8A%A5-%EC%86%8C%EA%B0%9C)
+## 💡 나의 사용기술 &nbsp;
 
-#### 게시물 등록
+- nGrinder를 이용해 게시글 호출 API 성능 테스트를 구현했습니다.
+- Spring Data JPA의 Pageable을 사용해서 infinite Scroll을 구현했습니다.
+- Git을 이용해 브랜치와 Issue를 관리했습니다.
+- 'mockmvc'를 이용해 E2E 테스트를 구현했습니다.
+- Spring Rest Docs를 사용해서 프로젝트 API 문서 자동화를 구현했습니다.
+- Geolcation API와 Kakao Local API를 사용해서 위치정보 검색 기능을 구현했습니다.
+- Spring Boot를 사용해서 API를 Restful하게 구현했습니다.
+- Spring Data JPA를 사용해서 객체지향적으로 CRUD 객체를 구현했습니다.
 
-본인이 방문한 맛집의 주소와 음식 사진을 업로드 할 수 있습니다.
+<br>
+
+## 💻 핵심 기능 &nbsp;
+
+### 트렌드 기능
+
+등록된 사용자 게시글의 데이터를 기반으로 차트와 지도를 이용해서 전국 맛집 트렌드를 보여줍니다.
+
+- 게시글 등록과 트렌드 차트
+
+![image](https://user-images.githubusercontent.com/82690689/150101014-2ca5db61-8dbc-4cb4-ae88-e65281d79988.png)
+사용자가 등록한 게시글의 해시태그와 주소의 카테고리, 위치정보를 기반으로 트렌드가 작성됩니다.
+<br>
+<br>
+<br>
+
+- 트렌드 데이터 저장
+
+![image](https://user-images.githubusercontent.com/82690689/150101221-c97f0868-6841-4969-a983-869fcdb265d4.png)
+위치 정보는 Kakao Local API를 통해 받아옵니다, 카테고리의 경우 데이터 전처리를 통해 데이터 베이스상에 저장됩니다.
+
+
+<br>
+
+## 💡 핵심 트러블 슈팅 &nbsp;
+
+### 게시글 리스트 API 속도 개선
+nGrinder를 기반으로 API 성능테스트를 진행했습니다.<br>
+'게시글 조회' API의 성능테스트 때 40~50명의 가상 사용자 수를 설정했을 때, TPS 수치가 40 ~ 50으로 동일하거나 그 보다 높은 값이 나오기를 기대했으나, 해당 값에 미치지 못하는 결과가 나왔습니다.
+- 조건
+  - Vusers: 40(Process 2, Thread 20)
+  - RunCount: 100
+  - nGrinder Controller: EC2 t2.xlarge
+  - nGrinder Agent: EC t2.xlarge
+  - Application Server(Target Server): EC2 t3.large
+  
+<details markdown="1">
+<summary>개선 전 성능테스트</summary>
+
+![개선사항적용전(dto)](https://user-images.githubusercontent.com/82690689/150091142-e084894c-850f-4c0a-a37f-385429acdb57.png)
+
+이를해결하기 위해 먼저 Target Server의 과부하로 인한 문제가 있는 듯해 Target Server를 두개로 늘리는 Scale Out을 실시해 보았습니다.
+  
+</details>
+
+<details markdown="2">
+<summary>Scale Out 후 성능테스트</summary>
    
-* 썸네일
-* 게시글에 대한 간단한 설명글
+![개선사항적용후(스케일아웃)](https://user-images.githubusercontent.com/82690689/150091558-2df821e5-d3ad-4352-bba6-51dade975824.png)
 
-원하는 장소를 등록할 수 있습니다.
-
-* 지도 검색을 통해 방문한 음식점 등록
-
-원하는 해시태그를 포함하는 게시물을 검색할 수 있습니다.
-
-* 입력한 해시태그를 포함한 게시물 목록 조회 가능
-
-<br>
+TPS가 약간 증가했지만, 의미있는 값이 증가했다고 볼 수 없다고 판단하여 코드 수정을 통해 성능 개선을 시키고자 했습니다.<br>
   
-#### 좋아요 ♥
-   
-관심있는 레시피는 좋아요를 통해 저장이 가능합니다.
+</details>
+
+<details markdown="3">
+<summary>개선 방법</summary>
+- 일대다 관계로 연관된 변수들의 패치 타입을 지연 로딩으로 불러오도록 개선.
+
+![image](https://user-images.githubusercontent.com/82690689/150092374-26346949-662c-41a8-b9cc-38d1ba9d6063.png)
+
+- Entity 자체를 Response해주는 것이 아니라 DTO에 담아 필요 내용만 Response해주도록 개선.
+
+![image](https://user-images.githubusercontent.com/82690689/150092392-89d32615-810f-48a8-b1f5-a4cee7e3a30b.png)
   
-* 레시피 리스트와 상세 페이지에서 좋아요 선택
-* 좋아요 취소
+</details>
+
+<details markdown="4">
+<summary>결과</summary>
+- 수정 전(32 + 32 쿼리)
+
+![image](https://user-images.githubusercontent.com/82690689/150092761-ed566ec1-0379-48ed-bb77-3a30c02094e0.png)
+
+- 수정 후(32 쿼리)
+
+![image](https://user-images.githubusercontent.com/82690689/150092778-778d1271-cb7d-4300-b79c-14af6d3387c2.png)
+
+32개의 게시물 조회 요청 시 지연 로딩을 사용함으로써 불필요한 32번의 쿼리 제거
+
+- 코드 개선 후 성능테스트
+
+![3분돌림](https://user-images.githubusercontent.com/82690689/150093147-5203fc9a-f760-4624-880c-08159acbed52.png)
+
+TPS 값이 19.4에서 37.6으로 약 두배 상승한 것을 확인할 수 있습니다.
+이를 통해 불필요한 쿼리 호출을 막는 것이 성능 개선에 많은 영향을 미친다는 것을 배울 수 있었습니다.
+</details>
 
 <br>
 
-#### 댓글
-
-레시피에 간단한 의견을 남길 수 있습니다.
-
-
-<br>
-
-#### 회원가입 및 로그인
-
-이메일을 통해 회원가입/로그인을 합니다.
-
-<br>
-
-#### 마이페이지
-
-자신의 활동 기록들을 확인할 수 있습니다.
-
-* 프로필 내용과 프로필 이미지 수정
-* 작성한 게시물 확인 가능
-  
-
-
-<br>
-
-## 👾 문제해결 &nbsp; [Wiki](https://github.com/yum-yum-trend/backend/wiki/%EB%AC%B8%EC%A0%9C-%ED%95%B4%EA%B2%B0-%EA%B3%BC%EC%A0%95)
+## 👾 그 외 트러블 슈팅 &nbsp;
  
+<details markdown="5">
+<summary>infinite Scroll 게시글 중복 문제</summary>
+  
+   - 인스타그램과 같이 사용자가 게시글을 볼 때, 스크롤을 아래로 내리면 자동으로 새로운 게시글이 출력해주기 위해 인피니티 스크롤을 적용하였습니다.
+   - 인피니티 스크롤 적용 후 A사용자가 게시글을 볼 때, B사용자가 게시글을 등록하게되면 A사용자는 같은 게시글이 두번 중복되어 보이는 문제가 발생하였습니다.
+   - 해당 문제가 Pagenation일 경우 사용자가 새로운 게시글이 등록되었다고 인지하고 넘어가겠지만 인피니티 스크롤의 경우 사용자에게 중복된 게시글이 두개가 보이게 됩니다.
+   - 이를 해결하기 위해 사용자가 보는 마지막 게시글 id값보다 낮은 게시글 id만 호출해오도록 수정함으로서 문제를 개선하였습니다.
+   
+   
+   <details markdown="6">
+   <summary>적용 전</summary>
+      
+   - Controller
+      
+   ``` java
+    @GetMapping("/articles")
+    public Page<ArticleResponseDto> getArticles(@RequestParam(required = false) String searchTag,
+                                                @RequestParam(required = false) String location,
+                                                @RequestParam(required = false) String category,
+                                                @RequestParam(required = false) String tagName,
+                                                @RequestParam("sortBy") String sortBy,
+                                                @RequestParam("isAsc") boolean isAsc,
+                                                @RequestParam("currentPage") int page) {
+        return articleService.getArticles(searchTag, location, category, tagName, sortBy, isAsc, page);
+    }
+   ```
+      
+   - Service
+      
+   ```java
+      public Page<ArticleResponseDto> getArticles(String searchTag, String location, String category, String tagName, String sortBy, boolean isAsc, int page) {
+        Sort.Direction direction = isAsc ? Sort.Direction.ASC : Sort.Direction.DESC;
+        Sort sort = Sort.by(direction, sortBy);
+        Pageable pageable = PageRequest.of(page, 32, sort);
+
+        Page<Article> articles = null;
+        if (searchTag.isEmpty()) {
+            if (location.isEmpty()) {
+                if (category.isEmpty() && tagName.isEmpty()) {
+                    articles = articleRepository.findAll(pageable);
+                } else if(tagName.isEmpty()) {
+                    articles = articleRepository.findAllByLocationCategoryName(pageable, category);
+                } else {
+                    articles = articleRepository.findAllByTagsName(tagName, pageable);
+                }
+            } else {
+                if (category.isEmpty() && tagName.isEmpty()) {
+                    articles = articleRepository.findAllByLocationRoadAddressNameStartsWith(pageable, location);
+                } else if(tagName.isEmpty()) {
+                    articles = articleRepository.findAllByLocationRoadAddressNameStartsWithAndLocationCategoryName(pageable, location, category);
+                } else {
+                    articles = articleRepository.findAllByLocationRoadAddressNameStartsWithAndTagsName(pageable, location, tagName);
+                }
+            }
+        } else {
+            articles = articleRepository.findAllByTagsName(searchTag, pageable);
+        }
+
+        return articles.map(ArticleResponseDto::new);
+    }
+   ```
+ 
+   </details>
+
+      
+   <details markdown="7">
+   <summary>적용 후</summary>
+      
+   - Controller
+      
+   ```java
+      @GetMapping("/articles")
+    public Page<ArticleResponseDto> getArticles(@RequestParam(required = false) String searchTag,
+                                                @RequestParam(required = false) String location,
+                                                @RequestParam(required = false) String category,
+                                                @RequestParam(required = false) String tagName,
+                                                @RequestParam("lastArticleId") Long lastArticleId,
+                                                @RequestParam("sortBy") String sortBy,
+                                                @RequestParam("isAsc") boolean isAsc,
+                                                @RequestParam("currentPage") int page) {
+        return articleService.getArticles(searchTag, location, category, tagName, sortBy, isAsc, page, lastArticleId);
+    }
+   ```
+      
+   - Service
+      
+   ```java
+      public Page<ArticleResponseDto> getArticles(String searchTag, String location, String category, String tagName, String sortBy, boolean isAsc, int page, Long lastArticleId) {
+        Sort.Direction direction = isAsc ? Sort.Direction.ASC : Sort.Direction.DESC;
+        Sort sort = Sort.by(direction, sortBy);
+        Pageable pageable = PageRequest.of(page, 32, sort);
+
+        Page<Article> articles = null;
+        if (lastArticleId.equals(0L)) {
+            if (searchTag.isEmpty()) {
+                if (location.isEmpty()) {
+                    if (category.isEmpty() && tagName.isEmpty()) {
+                        articles = articleRepository.findAll(pageable);
+                    } else if(tagName.isEmpty()) {
+                        articles = articleRepository.findAllByLocationCategoryName(pageable, category);
+                    } else {
+                        articles = articleRepository.findAllByTagsName(tagName, pageable);
+                    }
+                } else {
+                    if (category.isEmpty() && tagName.isEmpty()) {
+                        articles = articleRepository.findAllByLocationRoadAddressNameStartsWith(pageable, location);
+                    } else if(tagName.isEmpty()) {
+                        articles = articleRepository.findAllByLocationRoadAddressNameStartsWithAndLocationCategoryName(pageable, location, category);
+                    } else {
+                        articles = articleRepository.findAllByLocationRoadAddressNameStartsWithAndTagsName(pageable, location, tagName);
+                    }
+                }
+            } else {
+                articles = articleRepository.findAllByTagsName(searchTag, pageable);
+            }
+        } else {
+            if (searchTag.isEmpty()) {
+                if (location.isEmpty()) {
+                    if (category.isEmpty() && tagName.isEmpty()) {
+                        articles = articleRepository.findAllByIdLessThan(pageable, lastArticleId);
+                    } else if(tagName.isEmpty()) {
+                        articles = articleRepository.findAllByLocationCategoryNameAndIdLessThan(pageable, category, lastArticleId);
+                    } else {
+                        articles = articleRepository.findAllByTagsNameAndIdLessThan(tagName, pageable, lastArticleId);
+                    }
+                } else {
+                    if (category.isEmpty() && tagName.isEmpty()) {
+                        articles = articleRepository.findAllByLocationRoadAddressNameStartsWithAndIdLessThan(pageable, location, lastArticleId);
+                    } else if(tagName.isEmpty()) {
+                        articles = articleRepository.findAllByLocationRoadAddressNameStartsWithAndLocationCategoryNameAndIdLessThan(pageable, location, category, lastArticleId);
+                    } else {
+                        articles = articleRepository.findAllByLocationRoadAddressNameStartsWithAndTagsNameAndIdLessThan(pageable, location, tagName, lastArticleId);
+                    }
+                }
+            } else {
+                articles = articleRepository.findAllByTagsNameAndIdLessThan(searchTag, pageable, lastArticleId);
+            }
+        }
+
+
+
+        return articles.map(ArticleResponseDto::new);
+    }
+   ```
+
+   </details>
+  
+</details>
+ 
+<details markdown="8">
+<summary>위치 정보 등록 시 정확성 문제</summary>
+
+   - KaKao Local을 사용했을 때(반환되는 위치 정보가 한정적), 사용자가 위치정보를 등록할 경우 위치 정보에 대한 정확성을 어떻게 높일 수 있을까에 대한 고민을 했습니다.
+   - 이에 대한 해결방법으로 사용자 위치 기반으로 위치를 등록할 수 있는 기능을 추가하였습니다.
+   - Google Geolcation API를 이용해서 사용자의 위치 정보(좌표)를 받으면 해당 좌표를 Kakao Local API Query값에 추가하여 보냄으로서 사용자 주변 2km반경의 위치에 대해서 검색할 수 있도록 적용하였습니다.
+   
+   [issue10](https://github.com/yum-yum-trend/frontend/issues/10)
+   
+</details>
+      
+<details markdown="9">
+<summary>트렌드 기능 개선</summary>
+
+   - 임의의 사용자들로부터 트렌드 기능의 유용성에 대한 피드백을 받았고 이를 해결하였습니다.
+   - 가장 많은 피드백 중 하나는 차트를 클릭했을 경우 차트에 대한 게시글을 따로 보고싶다는 피드백이 중심이였습니다.
+   
+   [issue82](https://github.com/yum-yum-trend/backend/issues/82)
+   
+   
+</details>
