@@ -75,29 +75,152 @@
 
 ## 💻 핵심 기능 &nbsp;
 
-### 트렌드 기능
+### 트렌드 구현을 위한 '위치데이터' 저장 기능
 
-등록된 사용자 게시글의 데이터를 기반으로 차트와 지도를 이용해서 전국 맛집 트렌드를 보여줍니다.
+트렌드 기능을 구현하기 위해 Kakao Open API와 Google Geolocation API를 이용해 위치 데이터를 수집하여 트렌드 기능을 구현했습니다.
 
-- 게시글 등록과 트렌드 차트
-
-![image](https://user-images.githubusercontent.com/82690689/150101014-2ca5db61-8dbc-4cb4-ae88-e65281d79988.png)
-사용자가 등록한 게시글의 해시태그와 주소의 카테고리, 위치정보를 기반으로 트렌드가 작성됩니다.
-<br>
-<br>
 <br>
 
-- 트렌드 데이터 저장
+<details markdown="10">
+<summary>Google Geolocation API 기반 GPS기능 구현</summary>
+
+   - Google Geolocation API를 사용해서 사용자의 좌표를 확인 & 저장하였습니다.
+   
+   ``` javascript
+   function getCoordinate() {
+    $.ajax({
+        type: "POST",
+        url: `https://www.googleapis.com/geolocation/v1/geolocate?key=${GOOGLE_GEOLOCATION_API_KEY}`,
+        data: {},
+        success: function (response) {
+            let location = response.location;
+            gLat = location.lat;
+            gLng = location.lng;
+            console.log(gLat, gLng);
+        }
+    })
+}
+   ```
+   
+</details>
+
+<details markdown="11">
+<summary>Kakao Local API 기반 위치 데이터 수집 기능 구현</summary>
+
+   - Kakao Local API를 이용해서 사용자의 위치 데이터를 수집했습니다.
+   - 위치 데이터는 다음과 같은 항목을 수집합니다.
+     - 도로명 주소
+     - 위치명
+     - 좌표
+     - 카테고리
+   - 검색 데이터가 많은 관계로 페이징을 추가하여 한정된 공간 안에 위치데이터를 표시하도록 설정하였습니다.
+   
+   ``` javascript
+   function getLocation(currentPage) {
+    deleteSelectLocation()
+    $("#article-location-list-div").empty();
+
+    console.log(currentPage)
+    $.ajax({
+        type: "GET",
+        url: (gLat
+            ? `https://dapi.kakao.com/v2/local/search/keyword.json?y=${gLat}&x=${gLng}&radius=2000&page=${currentPage}&size=${KAKAO_LOCATION_SIZE}&query=` + encodeURIComponent($("#search-input").val())
+            : `https://dapi.kakao.com/v2/local/search/keyword.json?&page=${currentPage}&size=${KAKAO_LOCATION_SIZE}&query=` + encodeURIComponent($("#search-input").val())),
+        headers: {'Authorization': `KakaoAK ${KAKAO_SEARCH_API_KEY}`},
+        success: function (response) {
+            console.log(response)
+            let tempHtml = ``
+            let locationInfoList = response.documents
+            let pagingInfo = response.meta
+            if (parseInt(pagingInfo.total_count / KAKAO_LOCATION_SIZE) >= KAKAO_LOCATION_MAX_RESULT) {
+                pagingInfo.totalPage = pagingInfo.totalPage = KAKAO_LOCATION_MAX_RESULT;
+            } else {
+                if (pagingInfo.total_count % KAKAO_LOCATION_SIZE == 0) {
+                    pagingInfo.totalPage = parseInt(pagingInfo.total_count / KAKAO_LOCATION_SIZE);
+                } else {
+                    pagingInfo.totalPage = parseInt(pagingInfo.total_count / KAKAO_LOCATION_SIZE) + 1;
+                }
+            }
+            pagingInfo.currentPage = currentPage;
+            for (let i = 0; i < locationInfoList.length; i++) {
+                tempHtml = addLocationList(locationInfoList[i], i + 1)
+                $("#article-location-list-div").append(tempHtml);
+            }
+            addPaging(pagingInfo, currentPage - 1);
+        },
+        error: function (e) {
+            console.log(e);
+        }
+    })
+}
+
+   function addLocationList(locationInfo, idx) {
+    let roadAddressName = locationInfo.road_address_name;
+    let placeName = locationInfo.place_name;
+    let xCoordinate = locationInfo.x;
+    let yCoordinate = locationInfo.y;
+    let categoryName = locationInfo.category_name
+    return `<div>
+                <a href="#" class="location-list-font-size" onclick="selectLocation(${idx})">${placeName} (${roadAddressName})</a>
+                <span id="location-idx-${idx}" hidden>${roadAddressName}@${placeName}@${xCoordinate}@${yCoordinate}@${categoryName}</span>
+            </div>`
+}
+   ```
+   
+</details>
+
+<details markdown="12">
+<summary>데이터 전처리 & 저장</summary>
+
+- 트렌드 데이터(Tag,Location)는 게시글 저장(Article)과 함께 데이터베이스 상에 저장됩니다.
+- 위치 데이터의 카태고리 데이터는 트렌드 데이터에 사용할 수 있도록 전처리 과정을 거친 후 저장됩니다.
+
 
 ![image](https://user-images.githubusercontent.com/82690689/150101221-c97f0868-6841-4969-a983-869fcdb265d4.png)
-위치 정보는 Kakao Local API를 통해 받아옵니다, 카테고리의 경우 데이터 전처리를 통해 데이터 베이스상에 저장됩니다.
+
+```JAVA
+@Transactional
+    public void createArticle(User user, String text, LocationRequestDto locationRequestDto, List<String> hashtagNameList, List<MultipartFile> imageFileList) {
+        LocationRequestDto locationInfo = dataPreprocessing.categoryDataPreprocessing(locationRequestDto);
+        Location location = locationRepository.save(new Location(locationInfo, user.getId()));
+
+        Article article = articleRepository.save(new Article(text, location, user));
+
+        for(String tag : hashtagNameList) {
+            hashtagRepository.save(new Hashtag(tag, article, user));
+        }
+        for(MultipartFile multipartFile : imageFileList) {
+            String url = fileService.uploadImage(multipartFile);
+            Image image = new Image(url, article);
+            imageRepository.save(image);
+        }
+    }
+}
+
+@Component
+public class DataPreprocessing {
+
+    public LocationRequestDto categoryDataPreprocessing(LocationRequestDto locationRequestDto) {
+        String categoryInfo = locationRequestDto.getCategoryName();
+        String[] infoBundle = categoryInfo.split(" > ");
+        ArrayList<String> infoList = new ArrayList<String>(Arrays.asList(infoBundle));
+
+        // 전처리 완료한 카테고리 값 저장
+        locationRequestDto.setCategoryName(infoList.get(infoList.size() - 1));
+        return locationRequestDto;
+    }
+}
+
+```
+   
+</details>
 
 
 <br>
 
 ## 💡 핵심 트러블 슈팅 &nbsp;
 
-### 게시글 리스트 API 속도 개선
+### 게시글 리스트 API 속도 2배 개선
 nGrinder를 기반으로 API 성능테스트를 진행했습니다.<br>
 '게시글 조회' API의 성능테스트 때 40~50명의 가상 사용자 수를 설정했을 때, TPS 수치가 40 ~ 50으로 동일하거나 그 보다 높은 값이 나오기를 기대했으나, 해당 값에 미치지 못하는 결과가 나왔습니다.
 - 조건
