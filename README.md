@@ -1,5 +1,9 @@
 # YUM-YUM-TREND (얌얌 트렌드)
 
+## 🕸 시스템 구성도
+
+![image](https://user-images.githubusercontent.com/82690689/150101613-9570aa4a-7020-4886-a5dd-b1f36cecf7c0.png)
+
 <br>
 
 ## 🔗 라이브
@@ -31,10 +35,6 @@
 [:octocat:](https://github.com/profoundsea25) 양해준
 
 <br>
-
-## 🕸 시스템 구성도
-
-![image](https://user-images.githubusercontent.com/82690689/150101613-9570aa4a-7020-4886-a5dd-b1f36cecf7c0.png)
 
 
 ## 🛠 사용기술 &nbsp;
