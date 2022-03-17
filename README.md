@@ -65,8 +65,6 @@
 - nGrinder를 이용해 게시글 호출 API 성능 테스트를 구현했습니다.
 - Spring Data JPA의 Pageable을 사용해서 infinite Scroll을 구현했습니다.
 - Git을 이용해 브랜치와 Issue를 관리했습니다.
-- 'mockmvc'를 이용해 E2E 테스트를 구현했습니다.
-- Spring Rest Docs를 사용해서 프로젝트 API 문서 자동화를 구현했습니다.
 - Geolcation API와 Kakao Local API를 사용해서 위치정보 검색 기능을 구현했습니다.
 - Spring Boot를 사용해서 API를 Restful하게 구현했습니다.
 - Spring Data JPA를 사용해서 객체지향적으로 CRUD 객체를 구현했습니다.
